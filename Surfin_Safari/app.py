@@ -15,7 +15,7 @@ Base.prepare(autoload_with=engine)
 measurements = Base.classes.measurement
 stations = Base.classes.station
 
-#find date of 12 months prior to most recent date in database and convert to string
+#function to find date of 12 months prior to most recent date in database and convert to string
 def find_last_12_date(session):
     #order dates
     date_descending = session.query(measurements.date).order_by(measurements.date.desc())
@@ -98,11 +98,9 @@ def get_tobs():
     tobs_list = []
     for _ in most_active_tobs_last_12:
         tobs_list.append({"date": _[0], "temp": _[1]})
-    #create list to jsonify
-    tobs_jsonify = [most_active, tobs_list]
     #close session
     session.close()
-    return jsonify(tobs_jsonify)
+    return jsonify([most_active, tobs_list])
 
 #define dynamic routes
 @app.route("/api/v1.0/tobs/<start_date>")
