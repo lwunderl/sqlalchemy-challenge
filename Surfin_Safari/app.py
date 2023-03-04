@@ -23,7 +23,7 @@ def find_last_12_date(session):
     date_last_12 = str(dt.date.fromisoformat((date_descending[0][0]))-dt.timedelta(days=365))
     return date_last_12
 
-#calculate min, max, avg tobs by date
+#calculate min, max, avg tobs by date and return as dictionary
 def calc_minmaxavg(session, start_date, end_date=""):
     if end_date == "":
         date_descending = session.query(measurements.date).order_by(measurements.date.desc())
@@ -33,7 +33,7 @@ def calc_minmaxavg(session, start_date, end_date=""):
     tobs_data = session.query(func.min(measurements.tobs), func.avg(measurements.tobs), func.max(measurements.tobs))\
         .filter(measurements.date >= start_date)\
         .filter(measurements.date <= end_date)
-    return tobs_data
+    return {"min":tobs_data[0][0],"max":tobs_data[0][1],"avg":tobs_data[0][2]}
 
 #create Flask app
 app = Flask(__name__)
@@ -112,18 +112,18 @@ def get_tobs_start_date(start_date):
     tobs_data = calc_minmaxavg(session, start_date)
     #close session
     session.close()
-    return jsonify({"min":tobs_data[0][0],"max":tobs_data[0][1],"avg":tobs_data[0][2]})
+    return jsonify(tobs_data)
 
 @app.route("/api/v1.0/tobs/<start_date>/<end_date>")
 def get_tobs_start_end_date(start_date, end_date):
     print(f"Requesting tobs data between {start_date} and {end_date}")
     #connect session
     session = Session(engine)
+    #calculate min max avg from start date to end date
     tobs_data = calc_minmaxavg(session, start_date, end_date)
     #close session
     session.close()
-
-    return jsonify({"min":tobs_data[0][0],"max":tobs_data[0][1],"avg":tobs_data[0][2]})
+    return jsonify(tobs_data)
 
 if __name__ == "__main__":
     app.run(debug=True)
