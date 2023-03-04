@@ -6,22 +6,34 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
 import datetime as dt
 
-#create engine and reflect db with "hawaii.sqlite"
+#create engine and reflect db for "hawaii.sqlite"
 engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 Base = automap_base()
 Base.prepare(autoload_with=engine)
 
-#create variables for tables
+#create variables for tables/objects
 measurements = Base.classes.measurement
 stations = Base.classes.station
 
-#find date of 12 months prior to most recent date in data
+#find date of 12 months prior to most recent date in database and convert to string
 def find_last_12_date(session):
     #order dates
     date_descending = session.query(measurements.date).order_by(measurements.date.desc())
     #find 12 months prior date and convert to string
     date_last_12 = str(dt.date.fromisoformat((date_descending[0][0]))-dt.timedelta(days=365))
     return date_last_12
+
+#calculate min, max, avg tobs by date
+def calc_minmaxavg(session, start_date, end_date=""):
+    if end_date == "":
+        date_descending = session.query(measurements.date).order_by(measurements.date.desc())
+        end_date = str(date_descending[0][0])
+    else:
+        pass
+    tobs_data = session.query(func.min(measurements.tobs), func.avg(measurements.tobs), func.max(measurements.tobs))\
+        .filter(measurements.date >= start_date)\
+        .filter(measurements.date <= end_date)
+    return tobs_data
 
 #create Flask app
 app = Flask(__name__)
@@ -34,7 +46,8 @@ def homepage():
             f"Use the available routes below:<br>"
             f"<li>/api/v1.0/precipitation"
             f"<li>/api/v1.0/stations"
-            f"<li>/api/v1.0/tobs"
+            f"<li>/api/v1.0/tobs<br>"
+            f"Date format must be YYYY-MM-DD<br>"
             f"<li>/api/v1.0/tobs/start_date"
             f"<li>/api/v1.0/tobs/start_date/end_date"
             )
@@ -56,15 +69,14 @@ def get_precipitation():
 
 @app.route("/api/v1.0/stations")
 def get_stations():
-    print("Requesting all stations ID")
+    print("Requesting all stations list")
     #connect session
     session = Session(engine)
     #all stations id
-    total_stations = session.query(stations.id, stations.station)
-    total_stations = dict(total_stations)
+    total_stations = session.query(stations.station)
     #close session
     session.close()
-    return jsonify(total_stations)
+    return jsonify([x[0] for x in total_stations])
 
 @app.route("/api/v1.0/tobs")
 def get_tobs():
@@ -95,23 +107,25 @@ def get_tobs():
 #define dynamic routes
 @app.route("/api/v1.0/tobs/<start_date>")
 def get_tobs_start_date(start_date):
+    print(f"Requesting tobs data after {start_date}")
     #connect session
     session = Session(engine)
-    
+    #calculate min max avg from start date to most recent data
+    tobs_data = calc_minmaxavg(session, start_date)
     #close session
     session.close()
-    return "incomplete code"
+    return jsonify({"min":tobs_data[0][0],"max":tobs_data[0][1],"avg":tobs_data[0][2]})
 
-#calculate min, max, avg temps for all stations from start date to end date in data
 @app.route("/api/v1.0/tobs/<start_date>/<end_date>")
 def get_tobs_start_end_date(start_date, end_date):
+    print(f"Requesting tobs data between {start_date} and {end_date}")
     #connect session
     session = Session(engine)
-    
+    tobs_data = calc_minmaxavg(session, start_date, end_date)
     #close session
     session.close()
 
-    return "incomplete code"
+    return jsonify({"min":tobs_data[0][0],"max":tobs_data[0][1],"avg":tobs_data[0][2]})
 
 if __name__ == "__main__":
     app.run(debug=True)
